@@ -11,31 +11,63 @@ using namespace std;
 
 
 // Read ground truth table from  csv 
+
 unordered_map<string, unordered_map<string, Point>>
 readGroundTruth(const string& filename) {
 
     unordered_map<string, unordered_map<string, Point>> locations;
     ifstream file(filename);
+
+    if (!file.is_open()) {
+        cout << "Could not open CSV file!" << endl;
+        return locations;
+    }
+
     string line;
     getline(file, line);
+    getline(file, line);
+
+    vector<string> ballNames = {
+        "1", "2", "3", "4", "5",
+        "6", "7", "8", "9", "10",
+        "11", "12", "13", "14", "15",
+        "White"
+    };
 
     while (getline(file, line)) {
-
         stringstream ss(line);
-        string imageName, ballName, rowText, columnText;
-        getline(ss, imageName, ',');
-        getline(ss, ballName, ',');
-        getline(ss, rowText, ',');
-        getline(ss, columnText, ',');
+        vector<string> values;
+        string value;
 
-        if (imageName.empty() || ballName.empty() ||
-            rowText.empty() || columnText.empty()) {
+        while (getline(ss, value, ',')) {
+            values.push_back(value);
+        }
+
+        if (values.empty() || values[0].empty()) {
             continue;
         }
 
-        int row = stoi(rowText);
-        int column = stoi(columnText);
-        locations[imageName][ballName] = Point(column, row);
+        string imageName = values[0];
+
+        for (int i = 0; i < ballNames.size(); i++) {
+            int rowIndex = 1 + (i * 2);
+            int columnIndex = rowIndex + 1;
+            if (columnIndex >= values.size()) {
+                continue;
+            }
+
+            string rowText = values[rowIndex];
+            string columnText = values[columnIndex];
+
+            if (rowText.empty() || columnText.empty()) {
+                continue;
+            }
+
+            int row = stoi(rowText);
+            int column = stoi(columnText);
+            locations[imageName][ballNames[i]] =
+                Point(column, row);
+        }
     }
 
     file.close();
@@ -44,17 +76,15 @@ readGroundTruth(const string& filename) {
 }
 
 
+
 void MyApplication() {
     auto groundTruth = readGroundTruth("BallLocations.csv");
-
-    
     if (groundTruth.empty()) {
         cout << "No ground-truth coordinates were loaded!" << endl;
         return;
     }
 
-    // Retrieve ground truth for Table6
-    auto tableData = groundTruth.find("AllBalls.jpeg");
+    auto tableData = groundTruth.find("Table6.jpeg");
 
     if (tableData == groundTruth.end()) {
         cout << "No ground truth found for Table6!" << endl;
@@ -142,6 +172,34 @@ void MyApplication() {
         circle(output, centre, 2, Scalar(0, 0, 255), -1);
     }
 
+    vector<Point> detectedCentres;
+
+    for (const Vec3f& c : circles) {
+
+        Point centre(cvRound(c[0]), cvRound(c[1]));
+
+        detectedCentres.push_back(centre);
+    }
+
+
+    vector<Point> actualCentres;
+
+    for (const auto& ball : tableData->second) {
+
+        actualCentres.push_back(ball.second);
+    }
+
+    cout << "\nDetected centres:" << endl;
+
+    for (const Point& p : detectedCentres) {
+        cout << "(" << p.x << ", " << p.y << ")" << endl;
+    }
+
+    cout << "\nActual centres:" << endl;
+    for (const Point& p : actualCentres) {
+        cout << "(" << p.x << ", " << p.y << ")" << endl;
+    }
+
     
     imwrite("transformed.jpg", transformed);
     imwrite("detected_circles.jpg", output);
@@ -157,3 +215,4 @@ int main() {
 }
 
 // g++ Applications.cpp -o application
+// ./myprogram
